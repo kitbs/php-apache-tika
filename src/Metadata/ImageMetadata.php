@@ -49,7 +49,7 @@ class ImageMetadata extends Metadata
 
             case 'height':
             case 'image height':
-            case 'tiff:imageheigth':
+            case 'tiff:imageheight':
             case 'tiff:imagelength':
                 $this->height = (int) $value;
                 break;
