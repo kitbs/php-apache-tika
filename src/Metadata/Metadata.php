@@ -123,6 +123,14 @@ abstract class Metadata
                 $instance = new ImageMetadata($meta, $file);
                 break;
 
+            case 'audio':
+                $instance = new AudioMetadata($meta, $file);
+                break;
+
+            case 'video':
+                $instance = new VideoMetadata($meta, $file);
+                break;
+
             default:
                 $instance = new DocumentMetadata($meta, $file);
         }
