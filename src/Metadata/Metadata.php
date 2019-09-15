@@ -439,4 +439,14 @@ abstract class Metadata implements JsonSerializable
     {
         return $this->has($key);
     }
+
+    /**
+     * Set the language meta key.
+     * 
+     * @param string  $value
+     */
+    protected function setLanguageMeta(string $value)
+    {
+        $this->meta['language'] = substr($value, 0, 2);
+    }
 }
