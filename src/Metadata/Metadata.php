@@ -90,6 +90,7 @@ abstract class Metadata implements JsonSerializable
     public function __construct(array $meta, string $file, string $mime)
     {
         $this->prepareKeys();
+        $this->bootMixins();
 
         $this->fill($meta);
 
@@ -155,7 +156,7 @@ abstract class Metadata implements JsonSerializable
      * Register a metadata handler for a mime type.
      * @param  string  $mime
      * @param  string  $handler
-     * @param  boolean $prepend
+     * @param  bool    $prepend
      * @return void
      */
     public static function registerHandler(string $mime, string $handler, bool $prepend = false)
@@ -265,10 +266,21 @@ abstract class Metadata implements JsonSerializable
         }
 
         $this->keys = $keys;
+    }
 
+    /**
+     * Boot the keys and casts from all mixin traits.
+     *
+     * @return void
+     */
+    protected function bootMixins()
+    {
         foreach (get_class_methods($this) as $method) {
             if (stripos($method, 'addKeysFor') !== false) {
                 $this->addKeys($this->$method());
+            }
+            elseif (stripos($method, 'addCastsFor') !== false) {
+                $this->addCasts($this->$method());
             }
         }
     }
@@ -293,25 +305,6 @@ abstract class Metadata implements JsonSerializable
     }
 
     /**
-     * Add a standardized metadata key.
-     *
-     * @param string $key
-     * @param string|string[]|null $variants
-     * @return void
-     */
-    protected function addKey(string $key, $variants = null)
-    {
-        if (!$variants) {
-            $this->keys[$key] = $key;
-        }
-        else {
-            foreach ((array) $variants as $variant) {
-                $this->keys[$variant] = $key;
-            }
-        }
-    }
-
-    /**
      * Add an array of standardized meta keys.
      *
      * @param array[] $keys
@@ -319,12 +312,27 @@ abstract class Metadata implements JsonSerializable
      */
     protected function addKeys(array $keys)
     {
-        foreach ($keys as $key => $value) {
-            if (is_numeric($key) && is_string($value)) {
-                $key = $value;
+        foreach ($keys as $key => $variants) {
+            if (is_numeric($key) && is_string($variants)) {
+                $key = $variants;
             }
 
-            $this->addKey($key, $value);
+            foreach ((array) $variants as $variant) {
+                $this->keys[$variant] = $key;
+            }
+        }
+    }
+
+    /**
+     * Add an array of castable meta keys.
+     *
+     * @param string[] $casts
+     * @return void
+     */
+    protected function addCasts(array $casts)
+    {
+        foreach ($casts as $key => $cast) {
+            $this->casts[$key] = $cast;
         }
     }
 
