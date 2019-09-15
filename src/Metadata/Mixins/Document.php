@@ -7,6 +7,9 @@ trait Document
     protected function addKeysForDocument()
     {
         return [
+            'keywords' => [
+                'keyword',
+            ],
             'pages' => [
                 'nbpage',
                 'page-count',
@@ -28,5 +31,11 @@ trait Document
             'pages' => 'int',
             'words' => 'int',
         ];
+    }
+
+    protected function setKeywordsMeta($value)
+    {
+        $keywords = preg_split(preg_match('/,/', $value) ? '/\s*,\s*/' : '/\s+/', $value);
+        $this->meta['keywords'] = array_unique($keywords ?: []);
     }
 }

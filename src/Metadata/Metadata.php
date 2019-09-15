@@ -59,10 +59,8 @@ abstract class Metadata implements JsonSerializable
             'dc:title',
         ],
         'comments',
+        'description',
         'language',
-        'keywords' => [
-            'keyword',
-        ],
         'author' => [
             'author',
             'meta:author',
@@ -137,15 +135,15 @@ abstract class Metadata implements JsonSerializable
             throw new Exception('Empty response');
         }
 
-        $meta = json_decode($response, true);
-
-        // $meta = is_array($json) ? current($json) : $json; //TODO Why might this be an array?
+        $json = json_decode($response, true);
 
         if (json_last_error()) {
             $message = function_exists('json_last_error_msg') ? json_last_error_msg() : 'Error parsing JSON response';
 
             throw new Exception($message, json_last_error());
         }
+
+        $meta = is_numeric(key($json)) ? current($json) : $json; //TODO Why might this be an array? Recursive? But what about multiple files?
 
         $mime = is_array($meta['Content-Type']) ? current($meta['Content-Type']) : $meta['Content-Type'];
 
@@ -287,6 +285,7 @@ abstract class Metadata implements JsonSerializable
                 $keys[$variants] = $key;
             }
             elseif (is_string($key) && is_array($variants)) {
+                $keys[$key] = $key;
                 foreach ($variants as $variant) {
                     $keys[$variant] = $key;
                 }
