@@ -2,7 +2,9 @@
 
 namespace Vaites\ApacheTika\Metadata;
 
+use DateTime;
 use Exception;
+use DateTimeZone;
 use JsonSerializable;
 
 /**
@@ -42,7 +44,10 @@ abstract class Metadata implements JsonSerializable
      *
      * @var array
      */
-    protected $casts = [];
+    protected $casts = [
+        'created' => 'datetime',
+        'updated' => 'datetime',
+    ];
 
     /**
      * The standardized metadata keys.
@@ -50,7 +55,9 @@ abstract class Metadata implements JsonSerializable
      * @var array
      */
     protected $keys = [
-        'title',
+        'title' => [
+            'dc:title',
+        ],
         'comments',
         'language',
         'keywords' => [
@@ -58,8 +65,10 @@ abstract class Metadata implements JsonSerializable
         ],
         'author' => [
             'author',
+            'meta:author',
             'initial-creator',
             'creator',
+            'dc:creator',
         ],
         'generator' => [
             'xmp:creatortool',
@@ -73,9 +82,18 @@ abstract class Metadata implements JsonSerializable
         'created' => [
             'creation-date',
             'date',
+            'meta:creation-date',
+            'dcterms:created',
         ],
         'updated' => [
+            'modified',
             'last-modified',
+            'last-save-date',
+            'meta:save-date',
+            'dcterms:modified',
+        ],
+        'parser' => [
+            'x-parsed-by',
         ],
     ];
 
@@ -94,7 +112,7 @@ abstract class Metadata implements JsonSerializable
 
         $this->fill($meta);
 
-        $this->set('mime', $mime);
+        $this->force('file_type', $mime);
 
         if (!$this->has('title') && !is_null($file)) {
             $this->set('title', preg_replace('/\..+$/', '', basename($file)));
@@ -119,9 +137,9 @@ abstract class Metadata implements JsonSerializable
             throw new Exception('Empty response');
         }
 
-        $json = json_decode($response, true);
+        $meta = json_decode($response, true);
 
-        $meta = is_array($json) ? current($json) : $json; //TODO Why might this be an array?
+        // $meta = is_array($json) ? current($json) : $json; //TODO Why might this be an array?
 
         if (json_last_error()) {
             $message = function_exists('json_last_error_msg') ? json_last_error_msg() : 'Error parsing JSON response';
@@ -131,7 +149,7 @@ abstract class Metadata implements JsonSerializable
 
         $mime = is_array($meta['Content-Type']) ? current($meta['Content-Type']) : $meta['Content-Type'];
 
-        $handler = $this->getHandler($mime);
+        $handler = static::getHandler($mime);
 
         return new $handler($meta, $file, $mime);
     }
@@ -141,10 +159,10 @@ abstract class Metadata implements JsonSerializable
      * @param  string $mime
      * @return string
      */
-    protected function getHandler(string $mime)
+    protected static function getHandler(string $mime)
     {
-        foreach (static::$handlers as $mime => $handler) {
-            if (preg_match('#^'.str_replace('\*', '.*', $mime).'$#', $handler)) {
+        foreach (static::$handlers as $pattern => $handler) {
+            if (preg_match('#^'.str_replace('/*', '/.+', $pattern).'$#', $mime)) {
                 return $handler;
             }
         }
@@ -228,12 +246,26 @@ abstract class Metadata implements JsonSerializable
     protected function set(string $key, $value)
     {
         if ($key = $this->key($key)) {
-            if ($method = $this->mutator($key)) {
-                return $this->{$method}($value);
-            }
+            if (!$this->has($key)) {
+                if ($method = $this->mutator($key)) {
+                    return $this->{$method}($value);
+                }
 
-            $this->meta[$key] = $this->cast($value);
+                $this->meta[$key] = $this->cast($key, $value);
+            }
         }
+    }
+
+    /**
+     * Force a given metadata key on the instance.
+     *
+     * @param  string  $key
+     * @param  mixed  $value
+     * @return void
+     */
+    protected function force(string $key, $value)
+    {
+        $this->meta[$key] = $value;
     }
 
     /**
@@ -295,13 +327,7 @@ abstract class Metadata implements JsonSerializable
     {
         $key = mb_strtolower($key);
 
-        foreach ($this->keys as $standard => $variants) {
-            if (in_array($key, $variants, true)) {
-                return $standard;
-            }
-        }
-
-        return false;
+        return $this->keys[$key] ?? false;
     }
 
     /**
@@ -380,7 +406,8 @@ abstract class Metadata implements JsonSerializable
                     return (bool) $value;
                 case 'date':
                 case 'datetime':
-                    return $this->asDateTime($value); //FIXME
+                    $value = preg_replace('/\.\d+/', 'Z', $value);
+                    return new DateTime($value, new DateTimeZone('UTC'));
             }
         }
 
@@ -442,7 +469,7 @@ abstract class Metadata implements JsonSerializable
 
     /**
      * Set the language meta key.
-     * 
+     *
      * @param string  $value
      */
     protected function setLanguageMeta(string $value)

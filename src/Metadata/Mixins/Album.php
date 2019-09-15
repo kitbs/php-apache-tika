@@ -28,8 +28,14 @@ trait Album
             'composer' => [
                 'xmpdm:composer',
             ],
-            'release_date' => [
+            'released' => [
                 'xmpdm:releasedate',
+            ],
+            'comments' => [
+                'xmpDM:logComment',
+            ],
+            'genre' => [
+                'xmpDM:genre',
             ],
         ];
     }
@@ -39,7 +45,26 @@ trait Album
         return [
             'disc'        => 'int',
             'track'       => 'int',
+            'released'    => 'int',
             'compilation' => 'bool',
         ];
+    }
+
+    protected function setArtistMeta($value)
+    {
+        if (stripos($value, '/') !== false) {
+            $value = explode('/', $value);
+        }
+
+        $this->meta['artist'] = $value;
+    }
+
+    protected function setAlbumArtistMeta($value)
+    {
+        if (stripos($value, '/') !== false) {
+            $value = explode('/', $value);
+        }
+
+        $this->meta['album_artist'] = $value;
     }
 }

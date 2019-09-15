@@ -2,9 +2,6 @@
 
 namespace Vaites\ApacheTika\Metadata;
 
-use DateTime;
-use DateTimeZone;
-
 use Vaites\ApacheTika\Metadata\Mixins\Document;
 
 /**
