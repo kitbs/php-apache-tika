@@ -8,6 +8,7 @@ use Exception;
 use Vaites\ApacheTika\Clients\CLIClient;
 use Vaites\ApacheTika\Clients\WebClient;
 use Vaites\ApacheTika\Metadata\Metadata;
+use Vaites\ApacheTika\Metadata\EmbeddedContainer;
 
 /**
  * Apache Tika client interface
@@ -230,20 +231,17 @@ abstract class Client
      */
     public function getMetadata($file, $recursive = null)
     {
-        if(is_null($recursive))
-        {
+        if (is_null($recursive)) {
             $response = $this->request('meta', $file);
+            return Metadata::make($response, $file);
         }
-        elseif(in_array($recursive, ['text', 'html', 'ignore']))
-        {
+        elseif (in_array($recursive, ['text', 'html', 'ignore'])) {
             $response = $this->request("rmeta/$recursive", $file);
+            return EmbeddedContainer::make($response, $file);
         }
-        else
-        {
+        else {
             throw new Exception("Unknown recursive type (must be text, html, ignore or null)");
         }
-
-        return Metadata::make($response, $file);
     }
 
     /**

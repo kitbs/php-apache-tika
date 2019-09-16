@@ -265,9 +265,15 @@ class CLIClient extends Client
                 break;
 
             case 'rmeta/ignore':
+                $arguments[] = '--metadata --jsonRecursive';
+                break;
+
             case 'rmeta/html':
+                $arguments[] = '--html --jsonRecursive';
+                break;
+
             case 'rmeta/text':
-                throw new Exception('Recursive metadata is not supported in command line mode');
+                $arguments[] = '--text --jsonRecursive';
                 break;
 
             case 'text':

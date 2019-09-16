@@ -45,8 +45,9 @@ abstract class Metadata implements JsonSerializable
      * @var array
      */
     protected $casts = [
-        'created' => 'datetime',
-        'updated' => 'datetime',
+        'created'   => 'datetime',
+        'updated'   => 'datetime',
+        'file_type' => 'mimetype',
     ];
 
     /**
@@ -55,6 +56,9 @@ abstract class Metadata implements JsonSerializable
      * @var array
      */
     protected $keys = [
+        'file_type' => [
+            'content-type',
+        ],
         'title' => [
             'dc:title',
         ],
@@ -100,17 +104,14 @@ abstract class Metadata implements JsonSerializable
      *
      * @param   array  $meta
      * @param   string  $file
-     * @param   string  $mime
      * @throws \Exception
      */
-    public function __construct(array $meta, string $file, string $mime)
+    public function __construct(array $meta, string $file)
     {
         $this->prepareKeys();
         $this->bootMixins();
 
         $this->fill($meta);
-
-        $this->force('file_type', $mime);
 
         if (!$this->has('title') && !is_null($file)) {
             $this->set('title', preg_replace('/\..+$/', '', basename($file)));
@@ -131,33 +132,22 @@ abstract class Metadata implements JsonSerializable
      */
     public static function make(string $response, string $file)
     {
-        if (empty($response) || trim($response) == '') {
-            throw new Exception('Empty response');
-        }
+        $meta = static::parse($response);
 
-        $json = json_decode($response, true);
-
-        if (json_last_error()) {
-            $message = function_exists('json_last_error_msg') ? json_last_error_msg() : 'Error parsing JSON response';
-
-            throw new Exception($message, json_last_error());
-        }
-
-        $meta = is_numeric(key($json)) ? current($json) : $json; //TODO Why might this be an array? Recursive? But what about multiple files?
-
-        $mime = is_array($meta['Content-Type']) ? current($meta['Content-Type']) : $meta['Content-Type'];
+        $mime = static::asContentType($meta['Content-Type']);
 
         $handler = static::getHandler($mime);
 
-        return new $handler($meta, $file, $mime);
+        return new $handler($meta, $file);
     }
 
     /**
      * Get the metadata handler for a mime type.
+     *
      * @param  string $mime
      * @return string
      */
-    protected static function getHandler(string $mime)
+    public static function getHandler(string $mime)
     {
         foreach (static::$handlers as $pattern => $handler) {
             if (preg_match('#^'.str_replace('/*', '/.+', $pattern).'$#', $mime)) {
@@ -166,6 +156,27 @@ abstract class Metadata implements JsonSerializable
         }
 
         return DocumentMetadata::class;
+    }
+
+    protected static function parse($json)
+    {
+        if (is_array($json)) {
+            return $json;
+        }
+
+        if (empty($json) || trim($json) == '') {
+            throw new Exception('Empty response');
+        }
+
+        $meta = json_decode($json, true);
+
+        if (json_last_error()) {
+            $message = function_exists('json_last_error_msg') ? json_last_error_msg() : 'Error parsing JSON response';
+
+            throw new Exception($message, json_last_error());
+        }
+
+        return $meta;
     }
 
     /**
@@ -405,12 +416,37 @@ abstract class Metadata implements JsonSerializable
                     return (bool) $value;
                 case 'date':
                 case 'datetime':
-                    $value = preg_replace('/\.\d+/', 'Z', $value);
-                    return new DateTime($value, new DateTimeZone('UTC'));
+                    return static::asDateTime($value);
+                case 'mime':
+                case 'mimetype':
+                    return static::asContentType($value);
             }
         }
 
         return $value;
+    }
+
+    /**
+     * Format a value as a DateTime instance.
+     * @param  string $value
+     * @return \DateTime
+     */
+    protected static function asDateTime($value)
+    {
+        $value = preg_replace('/\.\d+/', 'Z', $value);
+        return new DateTime($value, new DateTimeZone('UTC'));
+    }
+
+    /**
+     * Format a value as a MIME type.
+     * @param  string|string[] $value
+     * @return string
+     */
+    protected static function asContentType($value)
+    {
+        $value = is_array($value) ? current($value) : $value;
+        $value = $value ? preg_split('/;\s+/', $value) : [];
+        return array_shift($value);
     }
 
     /**
