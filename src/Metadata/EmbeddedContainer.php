@@ -17,6 +17,20 @@ class EmbeddedContainer extends Metadata
     protected $embedded = [];
 
     /**
+     * Fill metadata from an array.
+     *
+     * @param   array  $meta
+     * @param   string  $file
+     * @throws \Exception
+     */
+    public function __construct(array $embedded, string $file)
+    {
+        $this->embedded = $embedded;
+
+        parent::__construct([], $file);
+    }
+
+    /**
      * Parse Apache Tika response and return a metadata handler.
      *
      * @param   string  $response
@@ -26,24 +40,20 @@ class EmbeddedContainer extends Metadata
      */
     public static function make(string $response, string $file)
     {
-        $response = static::parse($response);
+        $metas = static::parse($response);
         $embedded = [];
 
-        $container = array_shift($response);
-
-        foreach ($response as $meta) {
+        foreach ($metas as $index => $meta) {
             $mime = static::asContentType($meta['Content-Type']);
+            $embeddedFile = $meta['resourceName'] ?? $file;
+            $index = $index > 0 ? ($meta['X-TIKA:embedded_resource_path'] ?? '#'.$index) : '/';
 
             $handler = static::getHandler($mime);
 
-            $embedded[] = new $handler($meta, $file);
+            $embedded[$index] = new $handler($meta, $embeddedFile);
         }
 
-        $mime = static::asContentType($container['Content-Type']);
-
-        $handler = static::getHandler($mime);
-
-        return new $handler($meta, $file, $embedded);
+        return new static($embedded, $file);
     }
 
     public function embedded()

@@ -97,6 +97,7 @@ abstract class Metadata implements JsonSerializable
         'parser' => [
             'x-parsed-by',
         ],
+        'embedded_path' => 'x-tika:embedded_resource_path',
     ];
 
     /**
@@ -111,13 +112,21 @@ abstract class Metadata implements JsonSerializable
         $this->prepareKeys();
         $this->bootMixins();
 
-        $this->fill($meta);
+        $basename = basename($file);
 
-        if (!$this->has('title') && !is_null($file)) {
-            $this->set('title', preg_replace('/\..+$/', '', basename($file)));
+        $this->fill($meta);
+        $this->force('file_name', $basename);
+
+        if (!$this->has('title') && !is_null($basename)) {
+            $this->set('title', preg_replace('/\..+$/', '', $basename));
         }
 
-        if (!$this->has('updated')) {
+        if (!$this->has('created') && file_exists($file)) {
+            $this->set('created', date('Y-m-d\TH:i:s\Z', filectime($file)));
+            $this->set('updated', date('Y-m-d\TH:i:s\Z', filemtime($file)));
+        }
+
+        if ($this->has('created') && !$this->has('updated')) {
             $this->set('updated', $this->created);
         }
     }
@@ -218,7 +227,7 @@ abstract class Metadata implements JsonSerializable
      */
     public function all()
     {
-        return $this->meta + ['_raw' => $this->raw];
+        return $this->meta + ['_raw' => $this->raw] + (isset($this->embedded) ? ['_embedded' => array_keys($this->embedded)] : []);
     }
 
     /**
